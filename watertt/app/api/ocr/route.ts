@@ -3,13 +3,17 @@ import { NextResponse } from 'next/server'
 export const runtime = 'nodejs'
 
 function normalizeDate(input: string): string | null {
-  // Accept formats like 2025-08-31, 2025.08.31, 2025/08/31, 20250831
-  const clean = input.replace(/[^0-9]/g, '')
+  // Accept formats like 2025-08-31, 2025.08.31, 2025/08/31, 20250831, 2025년 8월 31일
+  const ymd = input
+    .replace(/년|월|일/g, (m) => (m === '년' ? '-' : m === '월' ? '-' : ''))
+    .replace(/\s+/g, '')
+  const clean = ymd.replace(/[^0-9]/g, '')
   if (clean.length === 8) {
     const y = clean.slice(0, 4)
-    const m = clean.slice(4, 6)
-    const d = clean.slice(6, 8)
-    if (Number(m) >= 1 && Number(m) <= 12 && Number(d) >= 1 && Number(d) <= 31) {
+    const m = clean.slice(4, 6).padStart(2, '0')
+    const d = clean.slice(6, 8).padStart(2, '0')
+    const mi = Number(m), di = Number(d)
+    if (mi >= 1 && mi <= 12 && di >= 1 && di <= 31) {
       return `${y}-${m}-${d}`
     }
   }
@@ -21,29 +25,62 @@ function extractFields(text: string) {
   let due_date: string | undefined
   let station_name: string | undefined
 
-  // Amount: look for the largest number followed by 원 or a standalone large number
-  const amountMatches = [...text.matchAll(/([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{5,})\s*원?/g)]
-  if (amountMatches.length > 0) {
-    const nums = amountMatches.map(m => Number(m[1].replace(/,/g, '')))
-    const max = Math.max(...nums)
-    if (Number.isFinite(max)) amount = max
-  }
-
-  // Due date: look for common date tokens possibly near words like 납부, 기한
-  const dateMatches = [...text.matchAll(/([12][0-9]{3}[.\/-][01]?[0-9][.\/-][0-3]?[0-9]|[12][0-9]{7})/g)]
-  for (const m of dateMatches) {
-    const norm = normalizeDate(m[1])
-    if (norm) { due_date = norm; break }
-  }
-
-  // Station: simple heuristic - line containing '충전소' or the first long line near top
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
-  const stationLine = lines.find(l => /충전소/.test(l))
-  if (stationLine) {
-    station_name = stationLine.replace(/.*충전소\s*[:：-]?\s*/,'') || stationLine
-  } else {
-    station_name = lines[0]?.slice(0, 30)
+  const joined = lines.join('\n')
+
+  // Prefer amounts on lines with keywords
+  const amountKeywordLine = lines.find(l => /(금액|납부액|청구금액|합계|총금액)/.test(l))
+  const amountLinePool = [amountKeywordLine, ...lines].filter(Boolean) as string[]
+  for (const line of amountLinePool) {
+    const m = line.match(/([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{5,})\s*(원|KRW)?/)
+    if (m) { amount = Number(m[1].replace(/,/g, '')); break }
   }
+  if (amount === undefined) {
+    const ms = [...joined.matchAll(/([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{5,})\s*(원|KRW)?/g)]
+    if (ms.length) {
+      const nums = ms.map(m => Number(m[1].replace(/,/g, '')))
+      amount = Math.max(...nums)
+    }
+  }
+
+  // Prefer due date on lines containing 납부기한/기한/마감
+  const dueKeywordLine = lines.find(l => /(납부기한|기한|마감|납부일)/.test(l))
+  const datePatterns = [
+    /([12][0-9]{3}[.\/-][01]?[0-9][.\/-][0-3]?[0-9])/g,
+    /([12][0-9]{3})\s*년\s*([0-1]?[0-9])\s*월\s*([0-3]?[0-9])\s*일?/g,
+    /([12][0-9]{7})/g,
+  ]
+  function findDateIn(str: string): string | null {
+    for (const re of datePatterns) {
+      const it = re.exec(str)
+      if (it) {
+        if (re === datePatterns[1]) {
+          // 년 월 일 분해 케이스
+          const y = it[1];
+          const m = String(it[2]).padStart(2, '0')
+          const d = String(it[3]).padStart(2, '0')
+          return normalizeDate(`${y}-${m}-${d}`)
+        }
+        const norm = normalizeDate(it[1])
+        if (norm) return norm
+      }
+    }
+    return null
+  }
+  if (dueKeywordLine) {
+    const found = findDateIn(dueKeywordLine)
+    if (found) due_date = found
+  }
+  if (!due_date) {
+    for (const ln of lines) {
+      const found = findDateIn(ln)
+      if (found) { due_date = found; break }
+    }
+  }
+
+  // Station name heuristic
+  const stationLine = lines.find(l => /충전소/.test(l))
+  station_name = stationLine ? stationLine.replace(/.*충전소\s*[:：-]?\s*/, '') || stationLine : lines[0]?.slice(0, 30)
 
   return { amount, due_date, station_name }
 }

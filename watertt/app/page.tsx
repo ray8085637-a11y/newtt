@@ -28,6 +28,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [filter, setFilter] = useState('all')
+  const [calendarMode, setCalendarMode] = useState<'month' | 'week'>('month')
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date())
   const [formData, setFormData] = useState({
     station_name: '',
     tax_type: '재산세',
@@ -782,36 +784,76 @@ export default function Home() {
         </div>
         {filter === 'calendar' ? (
           <div className="table-container">
-            <div className="table-header">
+            <div className="table-header" style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
               <h3 style={{fontSize: '14px', fontWeight: '600', margin: 0}}>세금 캘린더</h3>
+              <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
+                <button className={`filter-btn ${calendarMode==='month'?'active':''}`} onClick={() => setCalendarMode('month')}>월</button>
+                <button className={`filter-btn ${calendarMode==='week'?'active':''}`} onClick={() => setCalendarMode('week')}>주</button>
+                <button className="filter-btn" onClick={() => setCalendarDate(new Date())}>오늘</button>
+                <button className="filter-btn" onClick={() => setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() + (calendarMode==='month'?-1:0), prev.getDate() - (calendarMode==='week'?7:0)))}>이전</button>
+                <div style={{fontSize:'12px', color:'#666'}}>
+                  {calendarDate.getFullYear()}년 {calendarDate.getMonth()+1}월
+                </div>
+                <button className="filter-btn" onClick={() => setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() + (calendarMode==='month'?1:0), prev.getDate() + (calendarMode==='week'?7:0)))}>다음</button>
+              </div>
             </div>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(7, 1fr)', gap:'8px'}}>
-              {(() => {
-                const now = new Date()
-                const y = now.getFullYear()
-                const m = now.getMonth()
-                const first = new Date(y, m, 1)
-                const startDay = first.getDay()
-                const daysInMonth = new Date(y, m+1, 0).getDate()
-                const cells = [] as any[]
-                for (let i=0;i<startDay;i++) cells.push(<div key={'e'+i} style={{height:'120px', border:'1px solid #eee'}}></div>)
-                for (let d=1; d<=daysInMonth; d++) {
-                  const dateStr = new Date(y, m, d).toISOString().slice(0,10)
-                  const dayTaxes = taxes.filter(t => t.due_date.slice(0,10) === dateStr)
-                  cells.push(
-                    <div key={d} style={{height:'120px', border:'1px solid #eee', padding:'6px', overflow:'auto'}}>
-                      <div style={{fontSize:'12px', fontWeight:600}}>{d}</div>
-                      {dayTaxes.map(t => (
-                        <div key={t.id} style={{fontSize:'11px', marginTop:'4px'}}>
-                          <span style={{fontWeight:600}}>{t.station_name}</span> · {t.tax_type} · {t.amount.toLocaleString()}원
-                        </div>
-                      ))}
-                    </div>
-                  )
-                }
-                return cells
-              })()}
-            </div>
+            {calendarMode==='month' ? (
+              <div style={{display:'grid', gridTemplateColumns:'repeat(7, 1fr)', gap:'8px'}}>
+                {(() => {
+                  const base = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 1)
+                  const y = base.getFullYear()
+                  const m = base.getMonth()
+                  const first = new Date(y, m, 1)
+                  const startDay = first.getDay()
+                  const daysInMonth = new Date(y, m+1, 0).getDate()
+                  const cells = [] as any[]
+                  for (let i=0;i<startDay;i++) cells.push(<div key={'e'+i} style={{height:'120px', border:'1px solid #eee'}}></div>)
+                  for (let d=1; d<=daysInMonth; d++) {
+                    const dateObj = new Date(y, m, d)
+                    const dateStr = dateObj.toISOString().slice(0,10)
+                    const dayTaxes = taxes.filter(t => t.due_date.slice(0,10) === dateStr)
+                    const isToday = new Date().toDateString() === dateObj.toDateString()
+                    cells.push(
+                      <div key={d} style={{height:'120px', border:'1px solid #eee', padding:'6px', overflow:'auto', background:isToday?'#fffdf0':undefined}}>
+                        <div style={{fontSize:'12px', fontWeight:600}}>{d}</div>
+                        {dayTaxes.map(t => (
+                          <div key={t.id} style={{fontSize:'11px', marginTop:'4px'}}>
+                            <span style={{fontWeight:600}}>{t.station_name}</span> · {t.tax_type} · {t.amount.toLocaleString()}원
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  }
+                  return cells
+                })()}
+              </div>
+            ) : (
+              <div style={{display:'grid', gridTemplateColumns:'repeat(7, 1fr)', gap:'8px'}}>
+                {(() => {
+                  const start = new Date(calendarDate)
+                  start.setDate(start.getDate() - start.getDay()) // Sunday
+                  const cells = [] as any[]
+                  for (let i=0;i<7;i++) {
+                    const d = new Date(start)
+                    d.setDate(start.getDate()+i)
+                    const dateStr = d.toISOString().slice(0,10)
+                    const dayTaxes = taxes.filter(t => t.due_date.slice(0,10) === dateStr)
+                    const isToday = new Date().toDateString() === d.toDateString()
+                    cells.push(
+                      <div key={i} style={{height:'140px', border:'1px solid #eee', padding:'6px', overflow:'auto', background:isToday?'#fffdf0':undefined}}>
+                        <div style={{fontSize:'12px', fontWeight:600}}>{d.getMonth()+1}/{d.getDate()}</div>
+                        {dayTaxes.map(t => (
+                          <div key={t.id} style={{fontSize:'11px', marginTop:'4px'}}>
+                            <span style={{fontWeight:600}}>{t.station_name}</span> · {t.tax_type} · {t.amount.toLocaleString()}원
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  }
+                  return cells
+                })()}
+              </div>
+            )}
           </div>
         ) : (
         <div className="table-container">
