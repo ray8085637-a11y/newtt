@@ -164,6 +164,18 @@ export default function Home() {
       .insert([taxData])
     
     if (!error) {
+      try {
+        const userEmail = localStorage.getItem('userEmail')
+        if (userEmail) {
+          const html = `새 세금이 등록되었습니다.<br/>충전소: ${taxData.station_name}<br/>종류: ${taxData.tax_type}<br/>금액: ${taxData.amount.toLocaleString()}원<br/>납부기한: ${taxData.due_date}`
+          fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: userEmail, subject: '[EV Tax] 세금 등록 알림', html })
+          })
+        }
+      } catch (e) {}
+
       setShowForm(false)
       setFormData({
         station_name: '',
@@ -761,6 +773,47 @@ export default function Home() {
           </button>
         </div>
 
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: '8px'}}>
+          <div></div>
+          <div style={{display:'flex', gap:'8px'}}>
+            <button className="filter-btn" onClick={() => setFilter('all')}>목록</button>
+            <button className="filter-btn" onClick={() => setFilter('calendar')}>캘린더</button>
+          </div>
+        </div>
+        {filter === 'calendar' ? (
+          <div className="table-container">
+            <div className="table-header">
+              <h3 style={{fontSize: '14px', fontWeight: '600', margin: 0}}>세금 캘린더</h3>
+            </div>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(7, 1fr)', gap:'8px'}}>
+              {(() => {
+                const now = new Date()
+                const y = now.getFullYear()
+                const m = now.getMonth()
+                const first = new Date(y, m, 1)
+                const startDay = first.getDay()
+                const daysInMonth = new Date(y, m+1, 0).getDate()
+                const cells = [] as any[]
+                for (let i=0;i<startDay;i++) cells.push(<div key={'e'+i} style={{height:'120px', border:'1px solid #eee'}}></div>)
+                for (let d=1; d<=daysInMonth; d++) {
+                  const dateStr = new Date(y, m, d).toISOString().slice(0,10)
+                  const dayTaxes = taxes.filter(t => t.due_date.slice(0,10) === dateStr)
+                  cells.push(
+                    <div key={d} style={{height:'120px', border:'1px solid #eee', padding:'6px', overflow:'auto'}}>
+                      <div style={{fontSize:'12px', fontWeight:600}}>{d}</div>
+                      {dayTaxes.map(t => (
+                        <div key={t.id} style={{fontSize:'11px', marginTop:'4px'}}>
+                          <span style={{fontWeight:600}}>{t.station_name}</span> · {t.tax_type} · {t.amount.toLocaleString()}원
+                        </div>
+                      ))}
+                    </div>
+                  )
+                }
+                return cells
+              })()}
+            </div>
+          </div>
+        ) : (
         <div className="table-container">
           <div className="table-header">
             <h3 style={{fontSize: '14px', fontWeight: '600', margin: 0}}>세금 목록</h3>
@@ -878,15 +931,43 @@ export default function Home() {
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <h2 className="modal-title">세금 추가</h2>
               <form onSubmit={addTax}>
-                <div className="form-group">
-                  <label className="form-label">충전소</label>
-                  <input
-                    className="form-input"
-                    value={formData.station_name}
-                    onChange={e => setFormData({...formData, station_name: e.target.value})}
-                    placeholder="예: 서울역 충전소"
-                    required
-                  />
+                <div className="form-group" style={{display:'flex', gap: '8px', alignItems:'flex-end'}}>
+                  <div style={{flex: 1}}>
+                    <label className="form-label">충전소</label>
+                    <input
+                      className="form-input"
+                      value={formData.station_name}
+                      onChange={e => setFormData({...formData, station_name: e.target.value})}
+                      placeholder="예: 서울역 충전소"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">영수증 OCR</label>
+                    <input type="file" accept="image/*,application/pdf" onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const fd = new FormData()
+                      fd.append('file', file)
+                      try {
+                        const res = await fetch('/api/ocr', { method: 'POST', body: fd })
+                        const data = await res.json()
+                        if (!res.ok) throw new Error(data?.error || 'OCR 실패')
+                        setFormData(prev => ({
+                          ...prev,
+                          station_name: data.station_name || prev.station_name,
+                          amount: data.amount ? String(data.amount) : prev.amount,
+                          due_date: data.due_date || prev.due_date,
+                          memo: prev.memo || (data.text ? data.text.slice(0, 120) : '')
+                        }))
+                        showToast('OCR 결과를 반영했습니다')
+                      } catch (err: any) {
+                        showToast(err?.message || 'OCR 처리 중 오류')
+                      } finally {
+                        e.currentTarget.value = ''
+                      }
+                    }} />
+                  </div>
                 </div>
                 
                 <div className="form-group">
