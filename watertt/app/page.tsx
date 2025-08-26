@@ -1020,7 +1020,7 @@ export default function Home() {
                         ))}
                       </div>
                     )}
-                    <button type="button" className="btn-cancel" style={{marginTop:'8px'}} onClick={() => setShowStationManager(true)}>충전소 관리</button>
+                    <a href="/stations" className="btn-cancel" style={{marginTop:'8px', display:'inline-block', textDecoration:'none', textAlign:'center'}}>충전소 관리 페이지</a>
                   </div>
                   <div>
                     <label className="form-label">영수증 OCR</label>
@@ -1137,59 +1137,6 @@ export default function Home() {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
-        )}
-
-        {showStationManager && (
-          <div className="modal" onClick={() => setShowStationManager(false)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <h2 className="modal-title">충전소 관리</h2>
-              <div className="form-group">
-                <label className="form-label">새 충전소 이름</label>
-                <input className="form-input" value={stationQuery} onChange={e=>setStationQuery(e.target.value)} placeholder="예: 서울역 충전소" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">주소 (선택)</label>
-                <input className="form-input" id="new-station-address" placeholder="예: 서울특별시 중구..." />
-              </div>
-              <div className="form-actions">
-                <button type="button" className="btn-cancel" onClick={() => setShowStationManager(false)}>닫기</button>
-                <button type="button" className="btn-primary" onClick={async ()=>{
-                  const name = stationQuery.trim()
-                  const address = (document.getElementById('new-station-address') as HTMLInputElement | null)?.value || null
-                  if (!name) { showToast('이름을 입력하세요'); return }
-                  const { error } = await supabase.from('stations').insert([{ name, address, is_active: true }])
-                  if (!error) { showToast('추가되었습니다'); setStationQuery(''); fetchStations() }
-                }}>추가</button>
-              </div>
-              <div style={{marginTop:'16px'}}>
-                <h3 style={{fontSize:'14px', margin:'0 0 8px'}}>등록된 충전소</h3>
-                <div style={{maxHeight:'240px', overflow:'auto', border:'1px solid #eee'}}>
-                  {stations.map(s => (
-                    <div key={s.id} style={{display:'flex', justifyContent:'space-between', padding:'8px 12px', borderBottom:'1px solid #f0f0f0'}}>
-                      <div>
-                        <div style={{fontSize:'13px', fontWeight:600}}>{s.name}</div>
-                        {s.address && <div style={{fontSize:'11px', color:'#666'}}>{s.address}</div>}
-                      </div>
-                      <div style={{display:'flex', gap:'8px'}}>
-                        <button className="btn-cancel" onClick={async ()=>{
-                          const newName = prompt('새 이름 입력', s.name)
-                          if (!newName) return
-                          const { error } = await supabase.from('stations').update({ name: newName }).eq('id', s.id)
-                          if (!error) { showToast('수정되었습니다'); fetchStations() }
-                        }}>이름수정</button>
-                        <button className="btn-cancel" onClick={async ()=>{
-                          const ok = confirm('비활성화 하시겠습니까?')
-                          if (!ok) return
-                          const { error } = await supabase.from('stations').update({ is_active: false }).eq('id', s.id)
-                          if (!error) { showToast('비활성화되었습니다'); fetchStations() }
-                        }}>비활성화</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         )}
