@@ -21,6 +21,9 @@ type Tax = {
 }
 
 export default function Home() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' })
+  const [loginError, setLoginError] = useState('')
   const [taxes, setTaxes] = useState<Tax[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -36,8 +39,46 @@ export default function Home() {
   })
 
   useEffect(() => {
-    fetchTaxes()
+    // 로그인 체크
+    const savedLogin = localStorage.getItem('isLoggedIn')
+    if (savedLogin === 'true') {
+      setIsLoggedIn(true)
+      fetchTaxes()
+    } else {
+      setLoading(false)
+    }
   }, [])
+
+  // 로그인 처리
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault()
+    setLoginError('')
+    
+    // 간단한 로그인 체크 (실제로는 Supabase Auth 사용 권장)
+    const { data, error } = await supabase
+      .from('app_users')
+      .select('*')
+      .eq('email', loginForm.email)
+      .eq('password', loginForm.password)
+      .single()
+    
+    if (data) {
+      localStorage.setItem('isLoggedIn', 'true')
+      localStorage.setItem('userEmail', loginForm.email)
+      setIsLoggedIn(true)
+      fetchTaxes()
+    } else {
+      setLoginError('이메일 또는 비밀번호가 올바르지 않습니다.')
+    }
+  }
+
+  // 로그아웃
+  function handleLogout() {
+    localStorage.removeItem('isLoggedIn')
+    localStorage.removeItem('userEmail')
+    setIsLoggedIn(false)
+    setLoginForm({ email: '', password: '' })
+  }
 
   async function fetchTaxes() {
     const { data, error } = await supabase
@@ -178,6 +219,149 @@ export default function Home() {
     return `D-${days}`
   }
 
+  // 로그인 화면
+  if (!isLoggedIn) {
+    return (
+      <>
+        <style jsx global>{`
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #fafafa;
+            color: #000;
+          }
+          .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+          }
+          .login-box {
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+          }
+          .login-logo {
+            text-align: center;
+            margin-bottom: 32px;
+          }
+          .login-logo h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+          }
+          .login-logo p {
+            font-size: 13px;
+            color: #666;
+          }
+          .form-group {
+            margin-bottom: 20px;
+          }
+          .form-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: #333;
+          }
+          .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+          }
+          .form-input:focus {
+            outline: none;
+            border-color: #999;
+          }
+          .btn-login {
+            width: 100%;
+            background: #000;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+          }
+          .btn-login:hover {
+            opacity: 0.8;
+          }
+          .error-message {
+            background: #ffebeb;
+            color: #cc0000;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            margin-bottom: 16px;
+          }
+        `}</style>
+        
+        <div className="login-container">
+          <div className="login-box">
+            <div className="login-logo">
+              <h1>⚡ EV 충전소 세금 관리</h1>
+              <p>관리자 로그인</p>
+            </div>
+            
+            {loginError && (
+              <div className="error-message">{loginError}</div>
+            )}
+            
+            <form onSubmit={handleLogin}>
+              <div className="form-group">
+                <label className="form-label">이메일</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  value={loginForm.email}
+                  onChange={e => setLoginForm({...loginForm, email: e.target.value})}
+                  placeholder="contact@watercharging.com"
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">비밀번호</label>
+                <input
+                  type="password"
+                  className="form-input"
+                  value={loginForm.password}
+                  onChange={e => setLoginForm({...loginForm, password: e.target.value})}
+                  placeholder="비밀번호 입력"
+                  required
+                />
+              </div>
+              
+              <button type="submit" className="btn-login">
+                로그인
+              </button>
+            </form>
+            
+            <div style={{marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #e5e5e5', fontSize: '12px', color: '#999', textAlign: 'center'}}>
+              © 2025 Water Charging. All rights reserved.
+            </div>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  // 메인 화면 (로그인 후)
   return (
     <>
       <style jsx global>{`
@@ -201,15 +385,40 @@ export default function Home() {
           border-bottom: 1px solid #e5e5e5;
           padding: 20px;
           margin: -20px -20px 20px -20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
         }
-        .header h1 {
+        .header-left h1 {
           font-size: 20px;
           font-weight: 600;
           margin-bottom: 4px;
         }
-        .header p {
+        .header-left p {
           font-size: 12px;
           color: #666;
+        }
+        .header-right {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+        .user-info {
+          font-size: 13px;
+          color: #666;
+        }
+        .btn-logout {
+          padding: 6px 12px;
+          border: 1px solid #e5e5e5;
+          background: white;
+          border-radius: 4px;
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .btn-logout:hover {
+          border-color: #999;
+          background: #fafafa;
         }
         .stats {
           display: grid;
@@ -456,8 +665,18 @@ export default function Home() {
 
       <div className="container">
         <div className="header">
-          <h1>⚡ EV 충전소 세금 관리 시스템</h1>
-          <p>전기차 충전소 세금 납부 일정 관리</p>
+          <div className="header-left">
+            <h1>⚡ EV 충전소 세금 관리 시스템</h1>
+            <p>전기차 충전소 세금 납부 일정 관리</p>
+          </div>
+          <div className="header-right">
+            <span className="user-info">
+              {localStorage.getItem('userEmail')}
+            </span>
+            <button className="btn-logout" onClick={handleLogout}>
+              로그아웃
+            </button>
+          </div>
         </div>
 
         <div className="stats">
