@@ -1,4 +1,4 @@
-# EV 충전소 세금 관리 시스템
+# 세무 일정 관리 시스템
 
 전기차 충전소 세금 납부 일정을 관리하는 시스템입니다.
 
@@ -34,4 +34,5 @@ npm run build
 - Next.js 14
 - TypeScript
 - Supabase
+
 - React 18
