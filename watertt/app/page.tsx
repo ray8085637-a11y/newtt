@@ -40,15 +40,15 @@ export default function Home() {
   const [userRole, setUserRole] = useState<string>('viewer')
 
   useEffect(() => {
-  const savedLogin = localStorage.getItem('isLoggedIn')
-  const savedRole = localStorage.getItem('userRole')
-  if (savedLogin === 'true') {
-    setUserRole(savedRole || 'viewer') // 권한 설정
-    setIsLoggedIn(true)
-    fetchTaxes()
-  } else {
-    setLoading(false)
-  }
+    const savedLogin = localStorage.getItem('isLoggedIn')
+    const savedRole = localStorage.getItem('userRole')
+    if (savedLogin === 'true') {
+      setUserRole(savedRole || 'viewer')
+      setIsLoggedIn(true)
+      fetchTaxes()
+    } else {
+      setLoading(false)
+    }
   }, [])
 
   // 로그인 처리
@@ -56,35 +56,35 @@ export default function Home() {
     e.preventDefault()
     setLoginError('')
   
-  const { data, error } = await supabase
-    .from('app_users')
-    .select('*')
-    .eq('email', loginForm.email)
-    .eq('password', loginForm.password)
-    .eq('is_active', true) // 활성 계정만
-    .single()
+    const { data, error } = await supabase
+      .from('app_users')
+      .select('*')
+      .eq('email', loginForm.email)
+      .eq('password', loginForm.password)
+      .eq('is_active', true)
+      .single()
   
-  if (data) {
-    localStorage.setItem('isLoggedIn', 'true')
-    localStorage.setItem('userEmail', loginForm.email)
-    localStorage.setItem('userRole', data.role) // 권한 저장
-    setUserRole(data.role) // 권한 설정
-    setIsLoggedIn(true)
-    fetchTaxes()
-  } else {
-    setLoginError('이메일 또는 비밀번호가 올바르지 않습니다.')
+    if (data) {
+      localStorage.setItem('isLoggedIn', 'true')
+      localStorage.setItem('userEmail', loginForm.email)
+      localStorage.setItem('userRole', data.role)
+      setUserRole(data.role)
+      setIsLoggedIn(true)
+      fetchTaxes()
+    } else {
+      setLoginError('이메일 또는 비밀번호가 올바르지 않습니다.')
+    }
   }
-}
 
   // 로그아웃
   function handleLogout() {
-  localStorage.removeItem('isLoggedIn')
-  localStorage.removeItem('userEmail')
-  localStorage.removeItem('userRole') // 권한 제거
-  setIsLoggedIn(false)
-  setUserRole('viewer')
-  setLoginForm({ email: '', password: '' })
-}
+    localStorage.removeItem('isLoggedIn')
+    localStorage.removeItem('userEmail')
+    localStorage.removeItem('userRole')
+    setIsLoggedIn(false)
+    setUserRole('viewer')
+    setLoginForm({ email: '', password: '' })
+  }
 
   async function fetchTaxes() {
     const { data, error } = await supabase
@@ -146,7 +146,8 @@ export default function Home() {
     
     const taxData: any = {
       ...formData,
-      amount: parseInt(formData.amount)
+      amount: parseInt(formData.amount),
+      status: '납부예정'
     }
     
     if (formData.tax_type === '취득세') {
@@ -358,26 +359,27 @@ export default function Home() {
               </button>
             </form>
             
-<div style={{
-  marginTop: '24px',
-  padding: '16px',
-  background: '#f5f5f5',
-  borderRadius: '4px',
-  fontSize: '12px',
-  color: '#666'
-}}>
-  <strong>테스트 계정:</strong><br/>
-  <div style={{marginTop: '8px', lineHeight: '1.6'}}>
-    <strong>관리자:</strong> contact@watercharging.com / watercontact!@<br/>
-    <small style={{color: '#999'}}>→ 모든 기능 사용 가능</small><br/><br/>
-    
-    <strong>편집자:</strong> editor@watercharging.com / editor123!@<br/>
-    <small style={{color: '#999'}}>→ 추가/수정 가능, 삭제 불가</small><br/><br/>
-    
-    <strong>뷰어:</strong> viewer@watercharging.com / viewer123!@<br/>
-    <small style={{color: '#999'}}>→ 조회만 가능</small>
-  </div>
-</div>
+            <div style={{
+              marginTop: '24px',
+              padding: '16px',
+              background: '#f5f5f5',
+              borderRadius: '4px',
+              fontSize: '12px',
+              color: '#666'
+            }}>
+              <strong>테스트 계정:</strong><br/>
+              <div style={{marginTop: '8px', lineHeight: '1.6'}}>
+                <strong>관리자:</strong> contact@watercharging.com / watercontact!@<br/>
+                <small style={{color: '#999'}}>→ 모든 기능 사용 가능</small><br/><br/>
+                
+                <strong>편집자:</strong> editor@watercharging.com / editor123!@<br/>
+                <small style={{color: '#999'}}>→ 추가/수정 가능, 삭제 불가</small><br/><br/>
+                
+                <strong>뷰어:</strong> viewer@watercharging.com / viewer123!@<br/>
+                <small style={{color: '#999'}}>→ 조회만 가능</small>
+              </div>
+            </div>
+          </div>
         </div>
       </>
     )
@@ -692,29 +694,27 @@ export default function Home() {
             <p>전기차 충전소 세금 납부 일정 관리</p>
           </div>
           <div className="header-right">
-            // header-right 부분 수정
-<div className="header-right">
-  <span className="user-info">
-    {localStorage.getItem('userEmail')}
-    <span style={{
-      marginLeft: '8px',
-      padding: '2px 6px',
-      background: userRole === 'admin' ? '#ff4444' : 
-                  userRole === 'editor' ? '#0066ff' : '#999',
-      color: 'white',
-      borderRadius: '3px',
-      fontSize: '10px',
-      fontWeight: '600',
-      textTransform: 'uppercase'
-    }}>
-      {userRole === 'admin' ? '관리자' : 
-       userRole === 'editor' ? '편집자' : '뷰어'}
-    </span>
-  </span>
-  <button className="btn-logout" onClick={handleLogout}>
-    로그아웃
-  </button>
-</div>
+            <span className="user-info">
+              {localStorage.getItem('userEmail')}
+              <span style={{
+                marginLeft: '8px',
+                padding: '2px 6px',
+                background: userRole === 'admin' ? '#ff4444' : 
+                            userRole === 'editor' ? '#0066ff' : '#999',
+                color: 'white',
+                borderRadius: '3px',
+                fontSize: '10px',
+                fontWeight: '600',
+                textTransform: 'uppercase'
+              }}>
+                {userRole === 'admin' ? '관리자' : 
+                 userRole === 'editor' ? '편집자' : '뷰어'}
+              </span>
+            </span>
+            <button className="btn-logout" onClick={handleLogout}>
+              로그아웃
+            </button>
+          </div>
         </div>
 
         <div className="stats">
@@ -762,18 +762,17 @@ export default function Home() {
         </div>
 
         <div className="table-container">
-          // table-header 부분 수정
-<div className="table-header">
-  <h3 style={{fontSize: '14px', fontWeight: '600', margin: 0}}>세금 목록</h3>
-  {(userRole === 'admin' || userRole === 'editor') && (
-    <button className="btn-primary" onClick={() => setShowForm(true)}>
-      + 세금 추가
-    </button>
-  )}
-  {userRole === 'viewer' && (
-    <span style={{fontSize: '12px', color: '#999'}}>조회 전용 계정</span>
-  )}
-</div>
+          <div className="table-header">
+            <h3 style={{fontSize: '14px', fontWeight: '600', margin: 0}}>세금 목록</h3>
+            {(userRole === 'admin' || userRole === 'editor') && (
+              <button className="btn-primary" onClick={() => setShowForm(true)}>
+                + 세금 추가
+              </button>
+            )}
+            {userRole === 'viewer' && (
+              <span style={{fontSize: '12px', color: '#999'}}>조회 전용 계정</span>
+            )}
+          </div>
           <table>
             <thead>
               <tr>
@@ -822,52 +821,51 @@ export default function Home() {
                       </span>
                     </td>
                     <td style={{fontSize: '12px', color: '#666'}}>{tax.memo}</td>
-                    // 테이블의 작업 버튼 부분 수정
-<td>
-  <div className="action-btns">
-    {/* 상태 변경 버튼 - viewer 이상 */}
-    {tax.status !== '납부완료' && (
-      <button 
-        className="action-btn next"
-        onClick={() => updateStatus(tax.id, tax.status, tax.tax_type)}
-        title={userRole === 'viewer' ? '조회 권한만 있습니다' : ''}
-        style={{opacity: userRole === 'viewer' ? 0.5 : 1}}
-        disabled={userRole === 'viewer'}
-      >
-        다음 →
-      </button>
-    )}
-    
-    {/* 이전 버튼 - editor 이상 */}
-    {((tax.tax_type === '취득세' && tax.status !== '회계사검토') || 
-      (tax.tax_type !== '취득세' && tax.status === '납부완료')) && (
-      <button 
-        className="action-btn"
-        onClick={() => revertStatus(tax.id, tax.status, tax.tax_type)}
-        title={userRole === 'viewer' ? '조회 권한만 있습니다' : ''}
-        style={{opacity: userRole === 'viewer' ? 0.5 : 1}}
-        disabled={userRole === 'viewer'}
-      >
-        ← 이전
-      </button>
-    )}
-    
-    {/* 삭제 버튼 - admin만 */}
-    {userRole === 'admin' && (
-      <button 
-        className="action-btn delete"
-        onClick={() => deleteTax(tax.id)}
-      >
-        삭제
-      </button>
-    )}
-    
-    {/* viewer는 권한 없음 메시지 */}
-    {userRole === 'viewer' && (
-      <span style={{fontSize: '11px', color: '#999'}}>조회전용</span>
-    )}
-  </div>
-</td>
+                    <td>
+                      <div className="action-btns">
+                        {/* 상태 변경 버튼 - viewer는 비활성화 */}
+                        {tax.status !== '납부완료' && (
+                          <button 
+                            className="action-btn next"
+                            onClick={() => updateStatus(tax.id, tax.status, tax.tax_type)}
+                            title={userRole === 'viewer' ? '조회 권한만 있습니다' : ''}
+                            style={{opacity: userRole === 'viewer' ? 0.5 : 1}}
+                            disabled={userRole === 'viewer'}
+                          >
+                            다음 →
+                          </button>
+                        )}
+                        
+                        {/* 이전 버튼 - viewer는 비활성화 */}
+                        {((tax.tax_type === '취득세' && tax.status !== '회계사검토') || 
+                          (tax.tax_type !== '취득세' && tax.status === '납부완료')) && (
+                          <button 
+                            className="action-btn"
+                            onClick={() => revertStatus(tax.id, tax.status, tax.tax_type)}
+                            title={userRole === 'viewer' ? '조회 권한만 있습니다' : ''}
+                            style={{opacity: userRole === 'viewer' ? 0.5 : 1}}
+                            disabled={userRole === 'viewer'}
+                          >
+                            ← 이전
+                          </button>
+                        )}
+                        
+                        {/* 삭제 버튼 - admin만 표시 */}
+                        {userRole === 'admin' && (
+                          <button 
+                            className="action-btn delete"
+                            onClick={() => deleteTax(tax.id)}
+                          >
+                            삭제
+                          </button>
+                        )}
+                        
+                        {/* viewer는 권한 없음 메시지 */}
+                        {userRole === 'viewer' && (
+                          <span style={{fontSize: '11px', color: '#999'}}>조회전용</span>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -985,5 +983,3 @@ export default function Home() {
     </>
   )
 }
-
-
