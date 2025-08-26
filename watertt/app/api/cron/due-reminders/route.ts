@@ -53,16 +53,16 @@ export async function GET(req: Request) {
     }
 
     const grouped = taxes.reduce((acc: Record<string, any[]>, t: any) => {
-      const k = t.due_date.slice(0,10)
+      const k = (t.due_date as string).slice(0,10)
       acc[k] = acc[k] || []
       acc[k].push(t)
       return acc
     }, {})
 
     let sent = 0
-    for (const user of users) {
+    for (const user of users as { email: string }[]) {
       const parts: string[] = []
-      for (const [date, items] of Object.entries(grouped)) {
+      for (const [date, items] of Object.entries(grouped) as [string, any[]][]) {
         parts.push(`<h3>${date}</h3>`)
         parts.push('<ul>')
         for (const it of items) {

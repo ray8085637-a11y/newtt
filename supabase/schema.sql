@@ -56,3 +56,19 @@ create policy if not exists "Allow read to anon" on public.taxes
   for select using (true);
 create policy if not exists "Allow write to anon" on public.taxes
   for all using (true) with check (true);
+
+-- stations table
+create table if not exists public.stations (
+  id uuid primary key default gen_random_uuid(),
+  name text unique not null,
+  address text,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.stations enable row level security;
+create policy if not exists "Allow read to anon" on public.stations
+  for select using (true);
+create policy if not exists "Allow write to anon" on public.stations
+  for all using (true) with check (true);

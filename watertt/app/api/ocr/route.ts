@@ -36,11 +36,13 @@ function extractFields(text: string) {
     if (m) { amount = Number(m[1].replace(/,/g, '')); break }
   }
   if (amount === undefined) {
-    const ms = [...joined.matchAll(/([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{5,})\s*(원|KRW)?/g)]
-    if (ms.length) {
-      const nums = ms.map(m => Number(m[1].replace(/,/g, '')))
-      amount = Math.max(...nums)
+    const re = /([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{5,})\s*(원|KRW)?/g
+    const nums: number[] = []
+    let m: RegExpExecArray | null
+    while ((m = re.exec(joined)) !== null) {
+      nums.push(Number(m[1].replace(/,/g, '')))
     }
+    if (nums.length) amount = Math.max(...nums)
   }
 
   // Prefer due date on lines containing 납부기한/기한/마감

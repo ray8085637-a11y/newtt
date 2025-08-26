@@ -20,16 +20,24 @@ type Tax = {
   recurring_period?: string
 }
 
+type Station = {
+  id: string
+  name: string
+  address?: string
+  is_active: boolean
+}
+
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
   const [loginError, setLoginError] = useState('')
   const [taxes, setTaxes] = useState<Tax[]>([])
+  const [stations, setStations] = useState<Station[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [filter, setFilter] = useState('all')
-  const [calendarMode, setCalendarMode] = useState<'month' | 'week'>('month')
-  const [calendarDate, setCalendarDate] = useState<Date>(new Date())
+  const [calendarMode, setCalendarMode] = useState('month' as 'month' | 'week')
+  const [calendarDate, setCalendarDate] = useState(new Date())
   const [formData, setFormData] = useState({
     station_name: '',
     tax_type: '재산세',
@@ -40,6 +48,12 @@ export default function Home() {
     recurring_period: ''
   })
   const [userRole, setUserRole] = useState<string>('viewer')
+  const [stationQuery, setStationQuery] = useState('')
+  const [showStationManager, setShowStationManager] = useState(false)
+  const filteredStationOptions = stations
+    .filter(s => s.is_active)
+    .filter(s => s.name.toLowerCase().includes(stationQuery.toLowerCase()))
+    .slice(0, 8)
 
   useEffect(() => {
     const savedLogin = localStorage.getItem('isLoggedIn')
@@ -48,6 +62,7 @@ export default function Home() {
       setUserRole(savedRole || 'viewer')
       setIsLoggedIn(true)
       fetchTaxes()
+      fetchStations()
     } else {
       setLoading(false)
     }
@@ -73,6 +88,7 @@ export default function Home() {
       setUserRole(data.role)
       setIsLoggedIn(true)
       fetchTaxes()
+      fetchStations()
     } else {
       setLoginError('이메일 또는 비밀번호가 올바르지 않습니다.')
     }
@@ -205,6 +221,15 @@ export default function Home() {
         showToast('삭제되었습니다')
       }
     }
+  }
+
+  async function fetchStations() {
+    const { data, error } = await supabase
+      .from('stations')
+      .select('*')
+      .eq('is_active', true)
+      .order('name', { ascending: true })
+    if (data) setStations(data as any)
   }
 
   const filteredTaxes = taxes.filter(tax => {
@@ -967,6 +992,7 @@ export default function Home() {
             </tbody>
           </table>
         </div>
+        )}
 
         {showForm && (
           <div className="modal" onClick={() => setShowForm(false)}>
@@ -979,10 +1005,22 @@ export default function Home() {
                     <input
                       className="form-input"
                       value={formData.station_name}
-                      onChange={e => setFormData({...formData, station_name: e.target.value})}
+                      onChange={e => { setFormData({...formData, station_name: e.target.value}); setStationQuery(e.target.value) }}
+                      onFocus={() => setStationQuery(formData.station_name)}
                       placeholder="예: 서울역 충전소"
                       required
                     />
+                    {stationQuery && filteredStationOptions.length > 0 && (
+                      <div style={{border: '1px solid #e5e5e5', borderTop: 'none', background: 'white', maxHeight: '160px', overflow: 'auto'}}>
+                        {filteredStationOptions.map(s => (
+                          <div key={s.id} style={{padding:'8px 12px', cursor:'pointer'}} onClick={() => { setFormData({...formData, station_name: s.name}); setStationQuery('') }}>
+                            <div style={{fontSize:'13px', fontWeight:600}}>{s.name}</div>
+                            {s.address && <div style={{fontSize:'11px', color:'#666'}}>{s.address}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <button type="button" className="btn-cancel" style={{marginTop:'8px'}} onClick={() => setShowStationManager(true)}>충전소 관리</button>
                   </div>
                   <div>
                     <label className="form-label">영수증 OCR</label>
@@ -1099,6 +1137,59 @@ export default function Home() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {showStationManager && (
+          <div className="modal" onClick={() => setShowStationManager(false)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <h2 className="modal-title">충전소 관리</h2>
+              <div className="form-group">
+                <label className="form-label">새 충전소 이름</label>
+                <input className="form-input" value={stationQuery} onChange={e=>setStationQuery(e.target.value)} placeholder="예: 서울역 충전소" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">주소 (선택)</label>
+                <input className="form-input" id="new-station-address" placeholder="예: 서울특별시 중구..." />
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn-cancel" onClick={() => setShowStationManager(false)}>닫기</button>
+                <button type="button" className="btn-primary" onClick={async ()=>{
+                  const name = stationQuery.trim()
+                  const address = (document.getElementById('new-station-address') as HTMLInputElement | null)?.value || null
+                  if (!name) { showToast('이름을 입력하세요'); return }
+                  const { error } = await supabase.from('stations').insert([{ name, address, is_active: true }])
+                  if (!error) { showToast('추가되었습니다'); setStationQuery(''); fetchStations() }
+                }}>추가</button>
+              </div>
+              <div style={{marginTop:'16px'}}>
+                <h3 style={{fontSize:'14px', margin:'0 0 8px'}}>등록된 충전소</h3>
+                <div style={{maxHeight:'240px', overflow:'auto', border:'1px solid #eee'}}>
+                  {stations.map(s => (
+                    <div key={s.id} style={{display:'flex', justifyContent:'space-between', padding:'8px 12px', borderBottom:'1px solid #f0f0f0'}}>
+                      <div>
+                        <div style={{fontSize:'13px', fontWeight:600}}>{s.name}</div>
+                        {s.address && <div style={{fontSize:'11px', color:'#666'}}>{s.address}</div>}
+                      </div>
+                      <div style={{display:'flex', gap:'8px'}}>
+                        <button className="btn-cancel" onClick={async ()=>{
+                          const newName = prompt('새 이름 입력', s.name)
+                          if (!newName) return
+                          const { error } = await supabase.from('stations').update({ name: newName }).eq('id', s.id)
+                          if (!error) { showToast('수정되었습니다'); fetchStations() }
+                        }}>이름수정</button>
+                        <button className="btn-cancel" onClick={async ()=>{
+                          const ok = confirm('비활성화 하시겠습니까?')
+                          if (!ok) return
+                          const { error } = await supabase.from('stations').update({ is_active: false }).eq('id', s.id)
+                          if (!error) { showToast('비활성화되었습니다'); fetchStations() }
+                        }}>비활성화</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}
