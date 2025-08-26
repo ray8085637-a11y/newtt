@@ -314,7 +314,7 @@ export default function Home() {
         <div className="login-container">
           <div className="login-box">
             <div className="login-logo">
-              <h1>⚡ EV 충전소 세금 관리</h1>
+              <h1>⚡ water 세무 일정 관리 시스템</h1>
               <p>관리자 로그인</p>
             </div>
             
@@ -922,3 +922,4 @@ export default function Home() {
     </>
   )
 }
+
